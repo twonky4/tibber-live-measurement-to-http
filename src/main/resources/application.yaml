@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: tibber-live-measurement-to-http
+  devtools:
+    restart:
+      additional-exclude: log/**
+  jmx:
+    default-domain: "${spring.application.name}"
+  mvc:
+    locale: en_EN
+    localeResolver: fixed
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health"
+logging:
+  file:
+    path: "log/"
+    name: "${logging.file.path}${spring.application.name}.log"
+    max-history: 30
+    max-size: 50MB
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS,Europe/Berlin} [%thread] %-5level %logger{36} : %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS,Europe/Berlin} [%thread] %-5level %logger{36} : %msg%n"
+
+app:
+  login:
+    user-name: ${LOGIN_USER:admin}
+    password: ${LOGIN_PASS:pass}
+  tibber:
+    websocket-url: wss://websocket-api.tibber.com/v1-beta/gql/subscriptions
+    url: https://api.tibber.com/v1-beta/gql
+    token: ${TOKEN:5K4MVS-OjfWhK_4yrjOlFe1F6kJXPVf7eQYggo8ebAE}
+    home-id: ${HOME_ID:96a14971-525a-4420-aae9-e5aedaa129ff}
