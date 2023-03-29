@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
@@ -57,6 +58,8 @@ public class LiveMeasurementController {
 
 	@GetMapping("/api/v1/live-measurement")
 	public LiveMeasurement getData() throws URISyntaxException, InterruptedException, IOException {
+		connectIfNeeded();
+
 		LiveMeasurement liveMeasurement = client.getLiveMeasurement();
 		if (liveMeasurement != null) {
 			liveMeasurement.setPrice(price);
@@ -64,14 +67,27 @@ public class LiveMeasurementController {
 		return liveMeasurement;
 	}
 
-	@PostConstruct
-	public void init() throws InterruptedException, URISyntaxException {
-		loadPrice();
+	private void connectIfNeeded() throws InterruptedException, URISyntaxException {
+		if (client != null) {
+			return;
+		}
+
+		log.info("connect");
 
 		client = new WebSocketChatClient(new URI(websocketUrl), converter, reader, token, homeId);
 		client.connectBlocking();
+
+		for (int i = 0; i < 5; i++) {
+			if (client.getLiveMeasurement() != null) {
+				break;
+			}
+			TimeUnit.SECONDS.sleep(1);
+		}
+
+		log.info("connected");
 	}
 
+	@PostConstruct
 	@Scheduled(cron = "2 0 * * * *")
 	public void loadPrice() {
 		RestTemplate rest = new RestTemplate();
@@ -90,6 +106,8 @@ public class LiveMeasurementController {
 
 			price = BigDecimal.valueOf(node.get("data").get("viewer").get("homes").get(0).get("currentSubscription").get("priceInfo").get(
 					"current").get("total").asDouble());
+
+			log.info("price loaded");
 		} catch (JsonProcessingException e) {
 			log.error("parser error", e);
 
@@ -97,7 +115,7 @@ public class LiveMeasurementController {
 		}
 	}
 
-	public static class WebSocketChatClient extends WebSocketClient {
+	public class WebSocketChatClient extends WebSocketClient {
 		private final JsonConverterService converter;
 		private final MessageReaderService reader;
 		private final String token;
@@ -150,13 +168,15 @@ public class LiveMeasurementController {
 		@Override
 		public void onClose(int code, String reason, boolean remote) {
 			log.debug("connection closed code={}, reason={}, remote={}", code, reason, remote);
-			this.reconnect();
+
+			LiveMeasurementController.this.client = null;
 		}
 
 		@Override
 		public void onError(Exception e) {
 			log.error("error", e);
-			this.reconnect();
+			LiveMeasurementController.this.client = null;
+			close();
 		}
 	}
 }
