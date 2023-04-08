@@ -57,7 +57,6 @@ public class LiveMeasurementController {
 	private WebSocketChatClient client;
 	private BigDecimal price;
 	private OffsetDateTime lastRequestedTimestamp;
-	private OffsetDateTime lastApiTimestamp;
 
 	@GetMapping("/api/v1/live-measurement")
 	public LiveMeasurement getData() throws URISyntaxException, InterruptedException, IOException {
@@ -136,6 +135,7 @@ public class LiveMeasurementController {
 		private final String homeId;
 		@Getter
 		private LiveMeasurement liveMeasurement;
+		private OffsetDateTime lastApiTimestamp;
 
 		public WebSocketChatClient(URI uri, JsonConverterService converter, MessageReaderService reader, String token, String homeId) {
 			super(uri, Map.of(
@@ -173,15 +173,19 @@ public class LiveMeasurementController {
 				log.debug("send {}", message);
 				send(message);
 			} else if (msg instanceof NextMessage nextNessage) {
-				liveMeasurement = nextNessage.getData().getLiveMeasurement();
+				synchronized (this) {
+					liveMeasurement = nextNessage.getData().getLiveMeasurement();
 
-				if (lastApiTimestamp != null && lastApiTimestamp.equals(liveMeasurement.getTimestamp())) {
-					log.warn("got same value as last time, fake new data");
-					liveMeasurement.setTimestamp(OffsetDateTime.now());
-				} else {
-					lastApiTimestamp = liveMeasurement.getTimestamp();
+					if (lastApiTimestamp == null) {
+						lastApiTimestamp = OffsetDateTime.now();
+					}
+					if (lastApiTimestamp.equals(liveMeasurement.getTimestamp())) {
+						log.warn("got same value as last time, fake new data");
+						liveMeasurement.setTimestamp(OffsetDateTime.now());
+					} else {
+						lastApiTimestamp = liveMeasurement.getTimestamp();
+					}
 				}
-
 			} else {
 				log.error("was not able to read message {}", messageStr);
 			}
