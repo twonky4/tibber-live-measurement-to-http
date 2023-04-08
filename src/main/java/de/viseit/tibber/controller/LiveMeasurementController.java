@@ -56,7 +56,6 @@ public class LiveMeasurementController {
 
 	private WebSocketChatClient client;
 	private BigDecimal price;
-	private OffsetDateTime lastRequestedTimestamp;
 	private int calls = 0;
 
 	@GetMapping("/api/v1/live-measurement")
@@ -69,10 +68,10 @@ public class LiveMeasurementController {
 			if (liveMeasurement != null) {
 				liveMeasurement.setPrice(price);
 
-				if (liveMeasurement.getTimestamp().equals(lastRequestedTimestamp)) {
+				if (liveMeasurement.getTimestamp().isBefore(OffsetDateTime.now().minusSeconds(10))) {
 					calls++;
 					log.warn("no new data since last {} call(s)", calls);
-					if (calls >= 30) {
+					if (liveMeasurement.getTimestamp().isBefore(OffsetDateTime.now().minusMinutes(10))) {
 						calls = 0;
 						client = null;
 						liveMeasurement = null;
@@ -82,7 +81,6 @@ public class LiveMeasurementController {
 						log.info("got new values in the mean time");
 					}
 					calls = 0;
-					lastRequestedTimestamp = liveMeasurement.getTimestamp();
 				}
 			}
 			return liveMeasurement;
