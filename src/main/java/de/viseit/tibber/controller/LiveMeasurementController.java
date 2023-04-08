@@ -72,7 +72,7 @@ public class LiveMeasurementController {
 				if (liveMeasurement.getTimestamp().equals(lastRequestedTimestamp)) {
 					calls++;
 					log.warn("no new data since last {} call(s)", calls);
-					if (calls == 30) {
+					if (calls >= 30) {
 						calls = 0;
 						client = null;
 						liveMeasurement = null;
