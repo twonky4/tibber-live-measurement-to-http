@@ -1,6 +1,7 @@
 package de.viseit.tibber.controller;
 
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import java.io.IOException;
@@ -60,9 +61,13 @@ public class LiveMeasurementController {
 
 	@GetMapping("/api/v1/live-measurement")
 	public LiveMeasurement getData() throws URISyntaxException, InterruptedException, IOException {
-		synchronized (this) {
-			connectIfNeeded();
+		connectIfNeeded();
 
+		synchronized (this) {
+			if (client == null) {
+				log.error("no connection established");
+				return null;
+			}
 			LiveMeasurement liveMeasurement;
 			liveMeasurement = client.getLiveMeasurement();
 			if (liveMeasurement != null) {
@@ -88,23 +93,34 @@ public class LiveMeasurementController {
 	}
 
 	private void connectIfNeeded() throws InterruptedException, URISyntaxException {
-		if (client != null) {
-			return;
+		synchronized (this) {
+			if (client != null) {
+				return;
+			}
+
+			log.info("connect");
+			client = new WebSocketChatClient(new URI(websocketUrl), converter, reader, token, homeId);
+			client.connectBlocking(1, MINUTES);
 		}
 
-		log.info("connect");
-		client = new WebSocketChatClient(new URI(websocketUrl), converter, reader, token, homeId);
-		client.connectBlocking();
-
-		for (int i = 0; i < 10; i++) {
+		boolean connected = false;
+		for (int i = 0; i < 60; i++) {
 			if (client.getLiveMeasurement() != null) {
+				connected = true;
 				log.info("needed {} seconds to connect", i);
 				break;
 			}
 			TimeUnit.SECONDS.sleep(1);
 		}
 
-		log.info("connected");
+		if (connected) {
+			log.info("connected");
+		} else {
+			log.error("connection not possible within a minute");
+			synchronized (this) {
+				client = null;
+			}
+		}
 	}
 
 	@PostConstruct
