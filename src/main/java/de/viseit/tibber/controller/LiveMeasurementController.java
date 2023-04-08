@@ -193,12 +193,11 @@ public class LiveMeasurementController {
 				synchronized (this) {
 					liveMeasurement = nextNessage.getData().getLiveMeasurement();
 
-					log.warn("↓ {} ↑ {}", liveMeasurement.getPower(), liveMeasurement.getPowerProduction());
-
 					if (lastApiTimestamp.equals(liveMeasurement.getTimestamp())) {
 						log.warn("got same value as last time, fake new data");
 						liveMeasurement.setTimestamp(OffsetDateTime.now());
 					} else {
+						log.warn("↓ {} ↑ {}", liveMeasurement.getPower(), liveMeasurement.getPowerProduction());
 						lastApiTimestamp = liveMeasurement.getTimestamp();
 					}
 				}
