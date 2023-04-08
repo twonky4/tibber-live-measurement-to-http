@@ -197,7 +197,7 @@ public class LiveMeasurementController {
 						log.warn("got same value as last time, fake new data");
 						liveMeasurement.setTimestamp(OffsetDateTime.now());
 					} else {
-						log.warn("↓ {} ↑ {}", liveMeasurement.getPower(), liveMeasurement.getPowerProduction());
+						log.info("↓ {} ↑ {}", liveMeasurement.getPower(), liveMeasurement.getPowerProduction());
 						lastApiTimestamp = liveMeasurement.getTimestamp();
 					}
 				}
