@@ -56,28 +56,29 @@ public class LiveMeasurementController {
 
 	private WebSocketChatClient client;
 	private BigDecimal price;
-	private OffsetDateTime lastTimestamp;
+	private OffsetDateTime lastRequestedTimestamp;
+	private OffsetDateTime lastApiTimestamp;
 
 	@GetMapping("/api/v1/live-measurement")
 	public LiveMeasurement getData() throws URISyntaxException, InterruptedException, IOException {
-		connectIfNeeded();
-
-		LiveMeasurement liveMeasurement;
 		synchronized (this) {
+			connectIfNeeded();
+
+			LiveMeasurement liveMeasurement;
 			liveMeasurement = client.getLiveMeasurement();
 			if (liveMeasurement != null) {
 				liveMeasurement.setPrice(price);
 
-				if (liveMeasurement.getTimestamp().equals(lastTimestamp)) {
+				if (liveMeasurement.getTimestamp().equals(lastRequestedTimestamp)) {
 					log.warn("no new data since last call");
 					client = null;
 					liveMeasurement = null;
 				} else {
-					lastTimestamp = liveMeasurement.getTimestamp();
+					lastRequestedTimestamp = liveMeasurement.getTimestamp();
 				}
 			}
+			return liveMeasurement;
 		}
-		return liveMeasurement;
 	}
 
 	private void connectIfNeeded() throws InterruptedException, URISyntaxException {
@@ -86,16 +87,15 @@ public class LiveMeasurementController {
 		}
 
 		log.info("connect");
-		synchronized (this) {
-			client = new WebSocketChatClient(new URI(websocketUrl), converter, reader, token, homeId);
-			client.connectBlocking();
+		client = new WebSocketChatClient(new URI(websocketUrl), converter, reader, token, homeId);
+		client.connectBlocking();
 
-			for (int i = 0; i < 5; i++) {
-				if (client.getLiveMeasurement() != null) {
-					break;
-				}
-				TimeUnit.SECONDS.sleep(1);
+		for (int i = 0; i < 10; i++) {
+			if (client.getLiveMeasurement() != null) {
+				log.info("needed {} seconds to connect", i);
+				break;
 			}
+			TimeUnit.SECONDS.sleep(1);
 		}
 
 		log.info("connected");
@@ -174,6 +174,14 @@ public class LiveMeasurementController {
 				send(message);
 			} else if (msg instanceof NextMessage nextNessage) {
 				liveMeasurement = nextNessage.getData().getLiveMeasurement();
+
+				if (lastApiTimestamp != null && lastApiTimestamp.equals(liveMeasurement.getTimestamp())) {
+					log.warn("got same value as last time, fake new data");
+					liveMeasurement.setTimestamp(OffsetDateTime.now());
+				} else {
+					lastApiTimestamp = liveMeasurement.getTimestamp();
+				}
+
 			} else {
 				log.error("was not able to read message {}", messageStr);
 			}
