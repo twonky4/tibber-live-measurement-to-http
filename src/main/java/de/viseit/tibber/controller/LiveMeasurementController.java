@@ -78,6 +78,10 @@ public class LiveMeasurementController {
 						liveMeasurement = null;
 					}
 				} else {
+					if (calls > 0) {
+						log.info("got new values in the mean time");
+					}
+					calls = 0;
 					lastRequestedTimestamp = liveMeasurement.getTimestamp();
 				}
 			}
