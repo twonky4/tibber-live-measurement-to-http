@@ -57,6 +57,7 @@ public class LiveMeasurementController {
 	private WebSocketChatClient client;
 	private BigDecimal price;
 	private OffsetDateTime lastRequestedTimestamp;
+	private int calls = 0;
 
 	@GetMapping("/api/v1/live-measurement")
 	public LiveMeasurement getData() throws URISyntaxException, InterruptedException, IOException {
@@ -69,9 +70,13 @@ public class LiveMeasurementController {
 				liveMeasurement.setPrice(price);
 
 				if (liveMeasurement.getTimestamp().equals(lastRequestedTimestamp)) {
-					log.warn("no new data since last call");
-					client = null;
-					liveMeasurement = null;
+					calls++;
+					log.warn("no new data since last {} call(s)", calls);
+					if (calls == 30) {
+						calls = 0;
+						client = null;
+						liveMeasurement = null;
+					}
 				} else {
 					lastRequestedTimestamp = liveMeasurement.getTimestamp();
 				}
