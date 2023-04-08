@@ -122,10 +122,18 @@ public class LiveMeasurementController {
 		try {
 			JsonNode node = mapper.readTree(response.getBody());
 
-			price = BigDecimal.valueOf(node.get("data").get("viewer").get("homes").get(0).get("currentSubscription").get("priceInfo").get(
-					"current").get("total").asDouble());
+			price = BigDecimal.valueOf(node
+					.get("data")
+					.get("viewer")
+					.get("homes")
+					.get(0)
+					.get("currentSubscription")
+					.get("priceInfo")
+					.get("current")
+					.get("total")
+					.asDouble());
 
-			log.info("price loaded");
+			log.info("💵 {}", price.toPlainString());
 		} catch (JsonProcessingException e) {
 			log.error("parser error", e);
 
@@ -140,7 +148,7 @@ public class LiveMeasurementController {
 		private final String homeId;
 		@Getter
 		private LiveMeasurement liveMeasurement;
-		private OffsetDateTime lastApiTimestamp;
+		private OffsetDateTime lastApiTimestamp = OffsetDateTime.now();
 
 		public WebSocketChatClient(URI uri, JsonConverterService converter, MessageReaderService reader, String token, String homeId) {
 			super(uri, Map.of(
@@ -181,9 +189,8 @@ public class LiveMeasurementController {
 				synchronized (this) {
 					liveMeasurement = nextNessage.getData().getLiveMeasurement();
 
-					if (lastApiTimestamp == null) {
-						lastApiTimestamp = OffsetDateTime.now();
-					}
+					log.warn("↓ {} ↑ {}", liveMeasurement.getPower(), liveMeasurement.getPowerProduction());
+
 					if (lastApiTimestamp.equals(liveMeasurement.getTimestamp())) {
 						log.warn("got same value as last time, fake new data");
 						liveMeasurement.setTimestamp(OffsetDateTime.now());
