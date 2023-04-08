@@ -1,6 +1,7 @@
 package de.viseit.tibber.domain.messaging;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -21,6 +22,7 @@ public class NextMessage implements IdMessage {
 	@Setter
 	@Getter
 	public static class LiveMeasurement {
+		OffsetDateTime timestamp;
 		BigDecimal power;
 		BigDecimal powerProduction;
 		BigDecimal lastMeterConsumption;

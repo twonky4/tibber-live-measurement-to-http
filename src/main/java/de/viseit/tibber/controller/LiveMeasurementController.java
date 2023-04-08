@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -55,14 +56,26 @@ public class LiveMeasurementController {
 
 	private WebSocketChatClient client;
 	private BigDecimal price;
+	private OffsetDateTime lastTimestamp;
 
 	@GetMapping("/api/v1/live-measurement")
 	public LiveMeasurement getData() throws URISyntaxException, InterruptedException, IOException {
 		connectIfNeeded();
 
-		LiveMeasurement liveMeasurement = client.getLiveMeasurement();
-		if (liveMeasurement != null) {
-			liveMeasurement.setPrice(price);
+		LiveMeasurement liveMeasurement;
+		synchronized (this) {
+			liveMeasurement = client.getLiveMeasurement();
+			if (liveMeasurement != null) {
+				liveMeasurement.setPrice(price);
+
+				if (liveMeasurement.getTimestamp().equals(lastTimestamp)) {
+					log.warn("no new data since last call");
+					client = null;
+					liveMeasurement = null;
+				} else {
+					lastTimestamp = liveMeasurement.getTimestamp();
+				}
+			}
 		}
 		return liveMeasurement;
 	}
@@ -73,15 +86,16 @@ public class LiveMeasurementController {
 		}
 
 		log.info("connect");
+		synchronized (this) {
+			client = new WebSocketChatClient(new URI(websocketUrl), converter, reader, token, homeId);
+			client.connectBlocking();
 
-		client = new WebSocketChatClient(new URI(websocketUrl), converter, reader, token, homeId);
-		client.connectBlocking();
-
-		for (int i = 0; i < 5; i++) {
-			if (client.getLiveMeasurement() != null) {
-				break;
+			for (int i = 0; i < 5; i++) {
+				if (client.getLiveMeasurement() != null) {
+					break;
+				}
+				TimeUnit.SECONDS.sleep(1);
 			}
-			TimeUnit.SECONDS.sleep(1);
 		}
 
 		log.info("connected");
@@ -152,7 +166,7 @@ public class LiveMeasurementController {
 			if (msg instanceof ConnectionAck) {
 				Subscription subscription = Subscription.builder()
 						.query(format(
-								"subscription {%n  liveMeasurement(homeId: \"%s\") {%n    power%n    powerProduction%n    lastMeterConsumption%n    lastMeterProduction%n  }%n}",
+								"subscription {%n  liveMeasurement(homeId: \"%s\") {%n    timestamp%n    power%n    powerProduction%n    lastMeterConsumption%n    lastMeterProduction%n  }%n}",
 								homeId))
 						.build();
 				String message = converter.convertMessage(subscription);
@@ -169,13 +183,17 @@ public class LiveMeasurementController {
 		public void onClose(int code, String reason, boolean remote) {
 			log.debug("connection closed code={}, reason={}, remote={}", code, reason, remote);
 
-			LiveMeasurementController.this.client = null;
+			synchronized (LiveMeasurementController.this) {
+				LiveMeasurementController.this.client = null;
+			}
 		}
 
 		@Override
 		public void onError(Exception e) {
 			log.error("error", e);
-			LiveMeasurementController.this.client = null;
+			synchronized (LiveMeasurementController.this) {
+				LiveMeasurementController.this.client = null;
+			}
 			close();
 		}
 	}
