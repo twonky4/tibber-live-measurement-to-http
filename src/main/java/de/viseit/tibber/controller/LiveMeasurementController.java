@@ -106,7 +106,13 @@ public class LiveMeasurementController {
 
 		boolean connected = false;
 		for (int i = 0; i < 60; i++) {
-			if (client.getLiveMeasurement() != null) {
+			LiveMeasurement liveMeasurement = null;
+			synchronized (this) {
+				if (client != null) {
+					liveMeasurement = client.getLiveMeasurement();
+				}
+			}
+			if (liveMeasurement != null) {
 				connected = true;
 				log.info("needed {} seconds to connect", i);
 				break;
@@ -119,8 +125,10 @@ public class LiveMeasurementController {
 		} else {
 			log.error("connection not possible within a minute");
 			synchronized (this) {
-				client.close();
-				client = null;
+				if (client != null) {
+					client.close();
+					client = null;
+				}
 			}
 		}
 	}
