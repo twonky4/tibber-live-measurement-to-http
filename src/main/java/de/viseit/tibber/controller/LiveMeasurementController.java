@@ -93,7 +93,7 @@ public class LiveMeasurementController {
 		}
 	}
 
-	private void connectIfNeeded() throws InterruptedException, URISyntaxException {
+	private synchronized void connectIfNeeded() throws InterruptedException, URISyntaxException {
 		synchronized (this) {
 			if (client != null) {
 				return;
