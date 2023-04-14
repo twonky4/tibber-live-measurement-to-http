@@ -78,6 +78,7 @@ public class LiveMeasurementController {
 					log.warn("no new data since last {} call(s)", calls);
 					if (liveMeasurement.getTimestamp().isBefore(OffsetDateTime.now().minusMinutes(10))) {
 						calls = 0;
+						client.close();
 						client = null;
 						liveMeasurement = null;
 					}
@@ -118,6 +119,7 @@ public class LiveMeasurementController {
 		} else {
 			log.error("connection not possible within a minute");
 			synchronized (this) {
+				client.close();
 				client = null;
 			}
 		}
