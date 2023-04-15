@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ServerHandshake;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.RequestEntity;
@@ -78,7 +79,7 @@ public class LiveMeasurementController {
 					log.warn("no new data since last {} call(s)", calls);
 					if (liveMeasurement.getTimestamp().isBefore(OffsetDateTime.now().minusMinutes(10))) {
 						calls = 0;
-						client.close();
+						client.closeConnection(CloseFrame.SERVICE_RESTART, "no new values");
 						client = null;
 						liveMeasurement = null;
 					}
@@ -126,7 +127,7 @@ public class LiveMeasurementController {
 			log.error("connection not possible within a minute");
 			synchronized (this) {
 				if (client != null) {
-					client.close();
+					client.closeConnection(CloseFrame.SERVICE_RESTART, "no connected");
 					client = null;
 				}
 			}
@@ -194,7 +195,7 @@ public class LiveMeasurementController {
 
 		@Override
 		public void onOpen(ServerHandshake handshakedata) {
-			log.debug("connected");
+			log.info("open");
 
 			send(converter.convertMessage(new ConnectionInit(token)));
 		}
@@ -211,7 +212,7 @@ public class LiveMeasurementController {
 								homeId))
 						.build();
 				String message = converter.convertMessage(subscription);
-				log.debug("send {}", message);
+				log.info("subscription message send");
 				send(message);
 			} else if (msg instanceof NextMessage nextNessage) {
 				synchronized (this) {
@@ -232,7 +233,7 @@ public class LiveMeasurementController {
 
 		@Override
 		public void onClose(int code, String reason, boolean remote) {
-			log.debug("connection closed code={}, reason={}, remote={}", code, reason, remote);
+			log.warn("connection closed code={}, reason={}, remote={}", code, reason, remote);
 
 			synchronized (LiveMeasurementController.this) {
 				LiveMeasurementController.this.client = null;
@@ -245,7 +246,7 @@ public class LiveMeasurementController {
 			synchronized (LiveMeasurementController.this) {
 				LiveMeasurementController.this.client = null;
 			}
-			close();
+			closeConnection(CloseFrame.SERVICE_RESTART, "got error");
 		}
 	}
 }
