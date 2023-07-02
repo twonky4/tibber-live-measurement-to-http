@@ -48,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestController
 public class LiveMeasurementController {
+	private static final BigDecimal EURO_IN_CENT = BigDecimal.valueOf(100);
 	private final ObjectMapper mapper;
 	private final JsonConverterService converter;
 	private final MessageReaderService reader;
@@ -236,7 +237,8 @@ public class LiveMeasurementController {
 			int todaySize = today.size();
 			for (int i = 0; i < todaySize; i++) {
 				JsonNode hour = today.get(i);
-				BigDecimal total = BigDecimal.valueOf(hour.get("total").asDouble());
+				BigDecimal total = BigDecimal.valueOf(hour.get("total").asDouble())
+						.multiply(EURO_IN_CENT);
 				OffsetDateTime startsAt = OffsetDateTime.parse(hour.get("startsAt").asText());
 
 				if (startsAt.isBefore(now)) {
@@ -257,7 +259,8 @@ public class LiveMeasurementController {
 
 			int tomorrowSize = tomorrow.size();
 			for (int i = 0; i < tomorrowSize; i++) {
-				BigDecimal total = BigDecimal.valueOf(tomorrow.get(i).get("total").asDouble());
+				BigDecimal total = BigDecimal.valueOf(tomorrow.get(i).get("total").asDouble())
+						.multiply(EURO_IN_CENT);
 
 				dayPrices.add(total);
 			}
