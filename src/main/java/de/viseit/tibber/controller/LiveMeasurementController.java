@@ -238,7 +238,8 @@ public class LiveMeasurementController {
 			for (int i = 0; i < todaySize; i++) {
 				JsonNode hour = today.get(i);
 				BigDecimal total = BigDecimal.valueOf(hour.get("total").asDouble())
-						.multiply(EURO_IN_CENT);
+						.multiply(EURO_IN_CENT)
+						.stripTrailingZeros();
 				OffsetDateTime startsAt = OffsetDateTime.parse(hour.get("startsAt").asText());
 
 				if (startsAt.isBefore(now)) {
@@ -260,7 +261,8 @@ public class LiveMeasurementController {
 			int tomorrowSize = tomorrow.size();
 			for (int i = 0; i < tomorrowSize; i++) {
 				BigDecimal total = BigDecimal.valueOf(tomorrow.get(i).get("total").asDouble())
-						.multiply(EURO_IN_CENT);
+						.multiply(EURO_IN_CENT)
+						.stripTrailingZeros();
 
 				dayPrices.add(total);
 			}
