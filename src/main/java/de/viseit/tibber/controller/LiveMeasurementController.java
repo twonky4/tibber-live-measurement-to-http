@@ -1,6 +1,7 @@
 package de.viseit.tibber.controller;
 
 import static java.lang.String.format;
+import static java.time.temporal.ChronoUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
@@ -9,6 +10,8 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -17,6 +20,7 @@ import org.java_websocket.framing.CloseFrame;
 import org.java_websocket.handshake.ServerHandshake;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.RequestEntity;
+import org.springframework.http.RequestEntity.BodyBuilder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.viseit.tibber.domain.messaging.ConnectionAck;
 import de.viseit.tibber.domain.messaging.ConnectionInit;
 import de.viseit.tibber.domain.messaging.NextMessage;
+import de.viseit.tibber.domain.messaging.NextMessage.DayPrices;
 import de.viseit.tibber.domain.messaging.NextMessage.LiveMeasurement;
 import de.viseit.tibber.domain.messaging.Subscription;
 import de.viseit.tibber.service.JsonConverterService;
@@ -59,6 +64,7 @@ public class LiveMeasurementController {
 	private WebSocketChatClient client;
 	private BigDecimal price;
 	private int calls = 0;
+	private final List<BigDecimal> dayPrices = new ArrayList<>();
 
 	@GetMapping("/api/v1/live-measurement")
 	public LiveMeasurement getData() throws URISyntaxException, InterruptedException, IOException {
@@ -73,6 +79,7 @@ public class LiveMeasurementController {
 			liveMeasurement = client.getLiveMeasurement();
 			if (liveMeasurement != null) {
 				liveMeasurement.setPrice(price);
+				liveMeasurement.setDayPrices(buildDayPrices());
 
 				if (liveMeasurement.getTimestamp().isBefore(OffsetDateTime.now().minusSeconds(10))) {
 					calls++;
@@ -92,6 +99,40 @@ public class LiveMeasurementController {
 			}
 			return liveMeasurement;
 		}
+	}
+
+	private DayPrices buildDayPrices() {
+		DayPrices prices = new DayPrices();
+
+		try {
+			prices.setPrice00(dayPrices.get(0));
+			prices.setPrice01(dayPrices.get(1));
+			prices.setPrice02(dayPrices.get(2));
+			prices.setPrice03(dayPrices.get(3));
+			prices.setPrice04(dayPrices.get(4));
+			prices.setPrice05(dayPrices.get(5));
+			prices.setPrice06(dayPrices.get(6));
+			prices.setPrice07(dayPrices.get(7));
+			prices.setPrice08(dayPrices.get(8));
+			prices.setPrice09(dayPrices.get(9));
+			prices.setPrice10(dayPrices.get(10));
+			prices.setPrice11(dayPrices.get(11));
+			prices.setPrice12(dayPrices.get(12));
+			prices.setPrice13(dayPrices.get(13));
+			prices.setPrice14(dayPrices.get(14));
+			prices.setPrice15(dayPrices.get(15));
+			prices.setPrice16(dayPrices.get(16));
+			prices.setPrice17(dayPrices.get(17));
+			prices.setPrice18(dayPrices.get(18));
+			prices.setPrice19(dayPrices.get(19));
+			prices.setPrice20(dayPrices.get(20));
+			prices.setPrice21(dayPrices.get(21));
+			prices.setPrice22(dayPrices.get(22));
+			prices.setPrice23(dayPrices.get(23));
+		} catch (Exception e) {
+			log.error("some values are missing", e);
+		}
+		return prices;
 	}
 
 	private synchronized void connectIfNeeded() throws InterruptedException, URISyntaxException {
@@ -140,11 +181,7 @@ public class LiveMeasurementController {
 		RestTemplate rest = new RestTemplate();
 
 		String body = "{\"query\":\"{\\n  viewer {\\n    homes {\\n      currentSubscription{\\n        priceInfo{\\n          current{\\n            total\\n          }\\n        }\\n      }\\n    }\\n  }\\n}\\n\"}";
-		RequestEntity<String> request = RequestEntity
-				.post(URI.create("https://api.tibber.com/v1-beta/gql"))
-				.accept(APPLICATION_JSON)
-				.header("Authorization", "Bearer " + token)
-				.header("Content-Type", "application/json")
+		RequestEntity<String> request = buildRequest()
 				.body(body);
 		ResponseEntity<String> response = rest.exchange(request, String.class);
 
@@ -168,6 +205,81 @@ public class LiveMeasurementController {
 
 			price = null;
 		}
+	}
+
+	@PostConstruct
+	@Scheduled(cron = "2 0 * * * *")
+	public void loadDayPrice() {
+		RestTemplate rest = new RestTemplate();
+
+		String body = "{\"query\":\"{\\n  viewer {\\n    homes {\\n      currentSubscription{\\n        priceInfo{\\n          today {\\n            total\\n            startsAt\\n          }\\n          tomorrow {\\n            total\\n            startsAt\\n          }\\n        }\\n      }\\n    }\\n  }\\n}\\n\"}";
+		RequestEntity<String> request = buildRequest()
+				.body(body);
+		ResponseEntity<String> response = rest.exchange(request, String.class);
+
+		dayPrices.clear();
+
+		try {
+			JsonNode node = mapper.readTree(response.getBody());
+
+			OffsetDateTime now = OffsetDateTime.now().truncatedTo(HOURS);
+
+			JsonNode today = node
+					.get("data")
+					.get("viewer")
+					.get("homes")
+					.get(0)
+					.get("currentSubscription")
+					.get("priceInfo")
+					.get("today");
+
+			int todaySize = today.size();
+			for (int i = 0; i < todaySize; i++) {
+				JsonNode hour = today.get(i);
+				BigDecimal total = BigDecimal.valueOf(hour.get("total").asDouble());
+				OffsetDateTime startsAt = OffsetDateTime.parse(hour.get("startsAt").asText());
+
+				if (startsAt.isBefore(now)) {
+					continue;
+				}
+
+				dayPrices.add(total);
+			}
+
+			JsonNode tomorrow = node
+					.get("data")
+					.get("viewer")
+					.get("homes")
+					.get(0)
+					.get("currentSubscription")
+					.get("priceInfo")
+					.get("tomorrow");
+
+			int tomorrowSize = tomorrow.size();
+			for (int i = 0; i < tomorrowSize; i++) {
+				BigDecimal total = BigDecimal.valueOf(tomorrow.get(i).get("total").asDouble());
+
+				dayPrices.add(total);
+			}
+
+			log.info("{} daily prices loaded", dayPrices.size());
+
+			int loadedSize = dayPrices.size();
+			BigDecimal last = dayPrices.get(dayPrices.size() - 1);
+			for (int i = loadedSize; i < 24; i++) {
+				dayPrices.add(last);
+			}
+		} catch (JsonProcessingException e) {
+			log.error("parser error", e);
+		}
+	}
+
+	private BodyBuilder buildRequest() {
+		return RequestEntity
+				.post(URI.create("https://api.tibber.com/v1-beta/gql"))
+				.accept(APPLICATION_JSON)
+				.header("Authorization", "Bearer " + token)
+				.header("Content-Type", "application/json");
 	}
 
 	public class WebSocketChatClient extends WebSocketClient {
