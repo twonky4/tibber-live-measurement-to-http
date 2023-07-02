@@ -1,5 +1,7 @@
 package de.viseit.tibber.config;
 
+import static org.springframework.security.config.Customizer.withDefaults;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,11 +16,9 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		http
-				.csrf().disable()
-				.authorizeHttpRequests().anyRequest().authenticated()
-				.and()
-				.httpBasic();
+		http.csrf(csrf -> csrf.disable())
+				.authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
+				.httpBasic(withDefaults());
 		return http.build();
 	}
 
