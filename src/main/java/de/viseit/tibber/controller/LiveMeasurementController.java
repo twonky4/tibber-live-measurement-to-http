@@ -314,7 +314,10 @@ public class LiveMeasurementController {
         public void onOpen(ServerHandshake handshakedata) {
             log.info("open");
 
-            send(converter.convertMessage(new ConnectionInit(token)));
+            String message = converter.convertMessage(new ConnectionInit(token));
+            
+            log.debug("set: {}", message);
+            send(message);
         }
 
         @Override
@@ -330,6 +333,7 @@ public class LiveMeasurementController {
                         .build();
                 String message = converter.convertMessage(subscription);
                 log.info("subscription message send");
+                log.debug("send: {}", message);
                 send(message);
             } else if (msg instanceof NextMessage nextNessage) {
                 if (nextNessage.getData() != null) {
