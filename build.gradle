@@ -7,7 +7,7 @@ plugins {
 
 group = 'de.viseit'
 version = '1.0.0-SNAPSHOT'
-sourceCompatibility = '20'
+sourceCompatibility = '21'
 
 compileJava.options.encoding = "UTF-8"
 compileTestJava.options.encoding = "UTF-8"
