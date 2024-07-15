@@ -33,7 +33,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
 	testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-	testImplementation("org.assertj:assertj-core:3.26.0")
+	testImplementation("org.assertj:assertj-core:3.26.3")
 }
 
 tasks.named('test') {
