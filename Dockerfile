@@ -5,7 +5,7 @@ ARG git_token
 RUN cd /home/curl_user &&\
     curl --insecure -sL -H "Authorization: token $git_token" -L https://api.github.com/repos/$git_user/tibber-live-measurement-to-http/tarball > tarball.tar.gz
 
-FROM gradle:9.0-jdk21 AS builder
+FROM gradle:9.1-jdk21 AS builder
 ARG git_user
 
 COPY --from=downloader /home/curl_user/tarball.tar.gz /tarball.tar.gz
