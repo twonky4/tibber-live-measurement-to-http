@@ -1,4 +1,4 @@
-FROM curlimages/curl:8.16.0 AS downloader
+FROM curlimages/curl:8.17.0 AS downloader
 ARG git_user
 ARG git_token
 
